@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マンダラチャート（目標達成シート）</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --grid-gap: 5px;
+            --cell-bg: #ffffff;
+            --border-color: #ddd;
+            --center-bg: #e3f2fd; /* 中央3x3の背景（薄い青） */
+            --core-bg: #fff9c4;   /* ど真ん中の核（薄い黄色） */
+            --text-color: #333;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            color: var(--text-color);
+        }
+
+        h1 { margin-bottom: 20px; font-size: 1.5rem; }
+
+        /* 全体を包むコンテナ */
+        .mandala-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 10px; /* 親グリッド間の隙間 */
+            max-width: 900px;
+            width: 100%;
+            aspect-ratio: 1 / 1; /* 正方形を維持 */
+        }
+
+        /* 3x3の各ブロック */
+        .grid-block {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2px;
+            background-color: #ccc; /* 枠線の色代わり */
+            border: 1px solid #999;
+        }
+
+        /* 中央のブロック（親テーマ）を強調 */
+        .grid-block.center-block {
+            border: 3px solid #1976d2;
+            z-index: 10;
+        }
+
+        /* 各セル（入力欄） */
+        .cell {
+            background-color: var(--cell-bg);
+            border: none;
+            text-align: center;
+            font-size: 0.9rem;
+            padding: 5px;
+            resize: none; /* サイズ変更不可 */
+            outline: none;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cell:focus { background-color: #f0f8ff; }
+
+        /* 入力欄（textareaとして実装） */
+        textarea.cell-input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            resize: none;
+            font-family: inherit;
+        }
+
+        /* 中央ブロックのスタイル */
+        .center-block .cell { background-color: var(--center-bg); }
+        
+        /* ど真ん中のセル（最終目標） */
+        .core-cell {
+            background-color: var(--core-bg) !important;
+            font-weight: bold;
+            font-size: 1.1rem;
+            border: 2px solid #fbc02d;
+        }
+
+        /* フッター（リセットボタン） */
+        .footer { margin-top: 30px; }
+        button {
+            background-color: #ff5252;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover { background-color: #d32f2f; }
+
+        /* スマホ対応 */
+        @media (max-width: 600px) {
+            .mandala-container { gap: 5px; }
+            .cell-input { font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>マンダラチャート</h1>
+
+    <div class="mandala-container" id="mandala">
+        </div>
+
+    <div class="footer">
+        <button onclick="resetData()">データを全消去する</button>
+    </div>
+
+    <script>
+        // グリッドの構成定義
+        // 0 1 2
+        // 3 4 5
+        // 6 7 8
+        // 各ブロックがさらに9マス(0-8)を持つ
+        
+        const mandalaContainer = document.getElementById('mandala');
+        const STORAGE_KEY = 'mandala_data';
+
+        // データの読み込み
+        let mandalaData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+        // 81マスを生成する関数
+        function createMandala() {
+            for (let blockIdx = 0; blockIdx < 9; blockIdx++) {
+                const blockDiv = document.createElement('div');
+                blockDiv.className = 'grid-block';
+                if (blockIdx === 4) blockDiv.classList.add('center-block'); // 中央ブロック
+
+                for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
+                    const cellDiv = document.createElement('div');
+                    cellDiv.className = 'cell';
+                    
+                    // ど真ん中（全体の目標）
+                    if (blockIdx === 4 && cellIdx === 4) {
+                        cellDiv.classList.add('core-cell');
+                    }
+
+                    const textarea = document.createElement('textarea');
+                    textarea.className = 'cell-input';
+                    textarea.id = `b${blockIdx}-c${cellIdx}`; // ID: block番号-cell番号
+                    
+                    // 保存されたデータがあれば入れる
+                    if (mandalaData[textarea.id]) {
+                        textarea.value = mandalaData[textarea.id];
+                    }
+
+                    // 入力イベントリスナー
+                    textarea.addEventListener('input', (e) => {
+                        handleInput(blockIdx, cellIdx, e.target.value);
+                    });
+
+                    // 読み取り専用の設定（中央ブロックの周囲8マスから、周辺ブロックの中心へコピーされるため）
+                    // 周辺ブロックの中心(cellIdx 4)は、中央ブロックと連動するため編集不可にするか選べますが、
+                    // 今回は「自動反映」を優先し、ユーザーが直接編集しても上書きされる仕様にします。
+                    
+                    cellDiv.appendChild(textarea);
+                    blockDiv.appendChild(cellDiv);
+                }
+                mandalaContainer.appendChild(blockDiv);
+            }
+        }
+
+        // 入力処理と連動ロジック
+        function handleInput(blockIdx, cellIdx, value) {
+            // 1. データを保存
+            const id = `b${blockIdx}-c${cellIdx}`;
+            mandalaData[id] = value;
+            saveData();
+
+            // 2. 連動ロジック (マンダラチャートの肝)
+            // 中央ブロック(4)の周囲(0,1,2,3,5,6,7,8)に入力したら、
+            // 対応する周辺ブロックの中心(4)にコピーする
+            
+            if (blockIdx === 4 && cellIdx !== 4) {
+                // 対応関係の定義
+                // 中央ブロックのセル位置 -> ターゲットとなる周辺ブロックのインデックス
+                const targetBlocks = {
+                    0: 0, 1: 1, 2: 2,
+                    3: 3,       5: 5,
+                    6: 6, 7: 7, 8: 8
+                };
+
+                const targetBlockIdx = targetBlocks[cellIdx];
+                if (targetBlockIdx !== undefined) {
+                    const targetId = `b${targetBlockIdx}-c4`; // ターゲットの中心(4)
+                    
+                    // DOMを更新
+                    const targetEl = document.getElementById(targetId);
+                    if (targetEl) targetEl.value = value;
+
+                    // データも更新して保存
+                    mandalaData[targetId] = value;
+                    saveData();
+                }
+            }
+        }
+
+        // ローカルストレージへの保存
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mandalaData));
+        }
+
+        // リセット機能
+        function resetData() {
+            if (confirm('本当に入力内容をすべて消去しますか？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                mandalaData = {};
+                // 画面をリロードしてクリア
+                location.reload();
+            }
+        }
+
+        // 初期化実行
+        createMandala();
+
+    </script>
+</body>
+</html>
