@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>クラウドマンダラチャート</title>
     <style>
         :root {
@@ -13,78 +13,139 @@
             --text-color: #333;
         }
         body {
-            font-family: "Helvetica Neue", Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
             background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: 10px; /* スマホ用に余白削減 */
             margin: 0;
             color: var(--text-color);
+            overscroll-behavior: none; /* バウンス防止 */
         }
-        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        h1 { margin: 10px 0; font-size: 1.2rem; }
         
-        /* ログイン周りのデザイン */
-        #auth-container { margin-bottom: 20px; text-align: center; }
-        #user-info { display: none; align-items: center; gap: 10px; margin-bottom: 15px;}
+        /* ログイン周り */
+        #auth-container { margin-bottom: 10px; text-align: center; }
+        #user-info { display: none; align-items: center; gap: 10px; margin-bottom: 10px;}
         #user-photo { width: 32px; height: 32px; border-radius: 50%; }
-        .btn-login { background-color: #4285F4; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .btn-logout { background-color: #666; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; }
+        .btn-login { background-color: #4285F4; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; }
+        .btn-logout { background-color: #666; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 0.8rem; }
 
-        /* チャート部分（非表示で開始） */
-        #app-container { display: none; width: 100%; display: flex; flex-direction: column; align-items: center; }
+        /* アプリ本体 */
+        #app-container { display: none; width: 100%; flex-direction: column; align-items: center; }
 
+        /* グリッド全体 */
         .mandala-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            gap: 5px;
+            gap: 3px;
             max-width: 800px;
             width: 100%;
             aspect-ratio: 1 / 1;
         }
+
+        /* 3x3のブロック */
         .grid-block {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
             gap: 1px;
-            background-color: #ccc;
+            background-color: #999;
             border: 1px solid #999;
+            cursor: pointer; /* タップできることを示唆 */
+            transition: transform 0.2s;
         }
-        .grid-block.center-block { border: 3px solid #1976d2; z-index: 10; }
+        .grid-block:active { transform: scale(0.98); }
+
+        .grid-block.center-block { border: 2px solid #1976d2; z-index: 5; }
+
+        /* セル */
         .cell {
             background-color: var(--cell-bg);
-            border: none;
-            padding: 2px;
             width: 100%;
             height: 100%;
-            box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-        textarea.cell-input {
-            width: 100%; height: 100%; border: none; background: transparent;
-            text-align: center; resize: none; font-family: inherit; font-size: 0.8rem; outline: none;
+            overflow: hidden;
         }
         .center-block .cell { background-color: var(--center-bg); }
-        .core-cell { background-color: var(--core-bg) !important; font-weight: bold; border: 2px solid #fbc02d; }
-        
-        /* 保存ステータス表示 */
-        #status-msg { margin-top: 10px; font-size: 0.8rem; color: #666; height: 1.2em; }
+        .core-cell { background-color: var(--core-bg) !important; font-weight: bold; border: 2px solid #fbc02d; box-sizing: border-box;}
 
+        /* 入力エリア（通常時） */
+        textarea.cell-input {
+            width: 100%; height: 100%; border: none; background: transparent;
+            text-align: center; resize: none; font-family: inherit; 
+            font-size: 0.75rem; /* PC向け基本サイズ */
+            padding: 2px;
+            outline: none;
+            line-height: 1.2;
+            pointer-events: none; /* 通常時は入力を無効化（拡大時のみ入力させる） */
+        }
+
+        /* ★★★ 拡大モーダル（ここが新機能） ★★★ */
+        #zoom-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #zoom-container {
+            width: 90%;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+            background: white;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 2px;
+            padding: 5px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .zoom-cell {
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ddd;
+        }
+        .zoom-input {
+            width: 100%; height: 100%;
+            border: none; text-align: center; resize: none; outline: none;
+            font-size: 1rem; /* 拡大時は文字大きく */
+            padding: 5px;
+        }
+        #close-zoom {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: white; border: none;
+            font-weight: bold; border-radius: 20px;
+            cursor: pointer;
+        }
+
+        /* スマホ調整 */
         @media (max-width: 600px) {
-            .mandala-container { gap: 2px; }
-            textarea.cell-input { font-size: 0.6rem; }
+            .mandala-container { gap: 1px; }
+            textarea.cell-input { 
+                font-size: 0.5rem; /* スマホ一覧時は極小文字で見せるだけ */
+                padding: 0;
+            }
         }
     </style>
 </head>
 <body>
 
-    <h1>目標達成マンダラチャート</h1>
+    <h1>目標達成シート</h1>
 
     <div id="auth-container">
-        <button id="login-btn" class="btn-login" onclick="signIn()">Googleでログインして始める</button>
+        <button id="login-btn" class="btn-login" onclick="signIn()">Googleでログイン</button>
         <div id="user-info">
             <img id="user-photo" src="" alt="">
             <span id="user-name"></span>
@@ -92,9 +153,15 @@
         </div>
     </div>
 
-    <div id="app-container" style="display:none;">
+    <div id="app-container">
         <div class="mandala-container" id="mandala"></div>
-        <div id="status-msg">データ読込中...</div>
+        <div id="status-msg" style="margin-top:5px; font-size:0.7rem; color:#666;"></div>
+    </div>
+
+    <div id="zoom-modal">
+        <div style="color:white; margin-bottom:10px;">編集するマスを選択</div>
+        <div id="zoom-container"></div>
+        <button id="close-zoom" onclick="closeZoom()">閉じる</button>
     </div>
 
     <script type="module">
@@ -102,7 +169,7 @@
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // あなたのプロジェクト設定 (nazori-app)
+        // ★★★ 必ずあなたの鍵情報に戻してください ★★★
         const firebaseConfig = {
             apiKey: "AIzaSyCXIoMB5tIwB4qyi39f2cJH_qI0etgzpH8",
             authDomain: "nazori-app.firebaseapp.com",
@@ -112,7 +179,6 @@
             appId: "1:199689264431:web:2e09288f9c409f0952d5da"
         };
         
-        // Firebase初期化
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -121,27 +187,19 @@
         let currentUser = null;
         let mandalaData = {};
         let saveTimeout = null;
+        let currentZoomBlock = null; // 今拡大しているブロック番号
 
-        // ログイン処理
-        window.signIn = () => {
-            signInWithPopup(auth, provider).catch((error) => alert("ログイン失敗: " + error.message));
-        };
+        window.signIn = () => signInWithPopup(auth, provider).catch((e) => alert(e.message));
+        window.signOutApp = () => signOut(auth).then(() => location.reload());
 
-        // ログアウト処理
-        window.signOutApp = () => {
-            signOut(auth).then(() => location.reload());
-        };
-
-        // ログイン状態の監視
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
                 document.getElementById('login-btn').style.display = 'none';
                 document.getElementById('user-info').style.display = 'flex';
-                document.getElementById('user-name').innerText = user.displayName + " さんのシート";
+                document.getElementById('user-name').innerText = user.displayName;
                 document.getElementById('user-photo').src = user.photoURL;
                 document.getElementById('app-container').style.display = 'flex';
-                
                 loadData(user.uid);
             } else {
                 document.getElementById('app-container').style.display = 'none';
@@ -149,43 +207,34 @@
             }
         });
 
-        // データの読み込み
         function loadData(uid) {
             const docRef = doc(db, "users", uid, "mandala", "main");
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
-                    const serverData = docSnap.data().grid || {};
-                    // 編集中以外なら反映
-                    if (document.activeElement.tagName !== "TEXTAREA") {
-                        mandalaData = serverData;
-                        renderValues();
-                        document.getElementById('status-msg').innerText = "クラウドと同期完了";
+                    // 編集中(拡大中)でなければ更新
+                    if (document.getElementById('zoom-modal').style.display !== 'flex') {
+                        mandalaData = docSnap.data().grid || {};
+                        renderAll();
+                    } else {
+                        // 裏でデータだけ更新しておく
+                        const newData = docSnap.data().grid || {};
+                        // 競合避けるためマージは慎重に（今回は簡易実装）
+                        mandalaData = newData; 
                     }
-                } else {
-                    document.getElementById('status-msg').innerText = "新しいシートを作成しました";
+                    document.getElementById('status-msg').innerText = "同期完了";
                 }
             });
         }
 
-        // データの保存
         function saveToCloud() {
             if (!currentUser) return;
             document.getElementById('status-msg').innerText = "保存中...";
-            
             const docRef = doc(db, "users", currentUser.uid, "mandala", "main");
-            setDoc(docRef, { 
-                grid: mandalaData,
-                updatedAt: new Date()
-            }, { merge: true })
-            .then(() => {
-                document.getElementById('status-msg').innerText = "保存しました";
-            })
-            .catch((e) => {
-                document.getElementById('status-msg').innerText = "保存エラー: " + e.message;
-            });
+            setDoc(docRef, { grid: mandalaData, updatedAt: new Date() }, { merge: true })
+            .then(() => document.getElementById('status-msg').innerText = "保存しました");
         }
 
-        // マンダラチャート生成
+        // 全体表示の生成
         const mandalaContainer = document.getElementById('mandala');
         function createMandala() {
             mandalaContainer.innerHTML = "";
@@ -194,6 +243,9 @@
                 blockDiv.className = 'grid-block';
                 if (blockIdx === 4) blockDiv.classList.add('center-block');
 
+                // ブロックをクリックしたら拡大モードへ
+                blockDiv.onclick = () => openZoom(blockIdx);
+
                 for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
                     const cellDiv = document.createElement('div');
                     cellDiv.className = 'cell';
@@ -201,12 +253,10 @@
 
                     const textarea = document.createElement('textarea');
                     textarea.className = 'cell-input';
-                    textarea.id = `b${blockIdx}-c${cellIdx}`;
+                    textarea.id = `view-b${blockIdx}-c${cellIdx}`;
+                    textarea.readOnly = true; // 一覧画面では入力禁止
+                    textarea.value = mandalaData[`b${blockIdx}-c${cellIdx}`] || "";
                     
-                    textarea.addEventListener('input', (e) => {
-                        handleInput(blockIdx, cellIdx, e.target.value);
-                    });
-
                     cellDiv.appendChild(textarea);
                     blockDiv.appendChild(cellDiv);
                 }
@@ -214,34 +264,79 @@
             }
         }
 
-        function renderValues() {
-            for (const key in mandalaData) {
-                const el = document.getElementById(key);
-                if (el) el.value = mandalaData[key];
+        function renderAll() {
+            for (let i=0; i<9; i++) {
+                for (let j=0; j<9; j++) {
+                    const el = document.getElementById(`view-b${i}-c${j}`);
+                    if(el) el.value = mandalaData[`b${i}-c${j}`] || "";
+                }
             }
         }
 
-        function handleInput(blockIdx, cellIdx, value) {
-            const id = `b${blockIdx}-c${cellIdx}`;
-            mandalaData[id] = value;
+        // ★★★ 拡大モードの処理 ★★★
+        window.openZoom = (blockIdx) => {
+            currentZoomBlock = blockIdx;
+            const zoomModal = document.getElementById('zoom-modal');
+            const zoomContainer = document.getElementById('zoom-container');
+            zoomContainer.innerHTML = ""; // クリア
 
+            // 拡大用の3x3を生成
+            for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
+                const cellDiv = document.createElement('div');
+                cellDiv.className = 'zoom-cell';
+                if (blockIdx === 4 && cellIdx === 4) cellDiv.style.backgroundColor = '#fff9c4'; // 核
+                if (blockIdx === 4) cellDiv.style.backgroundColor = '#e3f2fd'; // 親
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'zoom-input';
+                const dataKey = `b${blockIdx}-c${cellIdx}`;
+                textarea.value = mandalaData[dataKey] || "";
+
+                // 入力処理
+                textarea.oninput = (e) => {
+                    const val = e.target.value;
+                    mandalaData[dataKey] = val;
+                    // 一覧画面にも即反映
+                    document.getElementById(`view-${dataKey}`).value = val;
+                    
+                    // 連動ロジック
+                    handleSync(blockIdx, cellIdx, val);
+
+                    // 保存
+                    if (saveTimeout) clearTimeout(saveTimeout);
+                    saveTimeout = setTimeout(saveToCloud, 1000);
+                };
+
+                cellDiv.appendChild(textarea);
+                zoomContainer.appendChild(cellDiv);
+            }
+
+            zoomModal.style.display = 'flex';
+        };
+
+        window.closeZoom = () => {
+            document.getElementById('zoom-modal').style.display = 'none';
+        };
+
+        // 連動ロジック
+        function handleSync(blockIdx, cellIdx, value) {
+            // 中心ブロック(4)の周囲に入力 -> 周辺ブロックの中心(4)へ
             if (blockIdx === 4 && cellIdx !== 4) {
                 const targetBlocks = {0:0, 1:1, 2:2, 3:3, 5:5, 6:6, 7:7, 8:8};
                 const targetBlockIdx = targetBlocks[cellIdx];
                 if (targetBlockIdx !== undefined) {
-                    const targetId = `b${targetBlockIdx}-c4`;
-                    mandalaData[targetId] = value;
-                    const targetEl = document.getElementById(targetId);
-                    if (targetEl) targetEl.value = value;
+                    const targetKey = `b${targetBlockIdx}-c4`;
+                    mandalaData[targetKey] = value;
+                    // 一覧画面反映
+                    const viewEl = document.getElementById(`view-${targetKey}`);
+                    if(viewEl) viewEl.value = value;
                 }
             }
-
-            if (saveTimeout) clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(saveToCloud, 1000);
-            document.getElementById('status-msg').innerText = "入力中...";
         }
 
+        // 初期化
         createMandala();
+
     </script>
 </body>
 </html>
