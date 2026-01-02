@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マンダラチャート（目標達成シート）</title>
+    <title>クラウドマンダラチャート</title>
     <style>
         :root {
             --bg-color: #f0f2f5;
-            --grid-gap: 5px;
             --cell-bg: #ffffff;
-            --border-color: #ddd;
-            --center-bg: #e3f2fd; /* 中央3x3の背景（薄い青） */
-            --core-bg: #fff9c4;   /* ど真ん中の核（薄い黄色） */
+            --center-bg: #e3f2fd;
+            --core-bg: #fff9c4;
             --text-color: #333;
         }
-
         body {
             font-family: "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-color);
@@ -25,45 +22,40 @@
             margin: 0;
             color: var(--text-color);
         }
+        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        
+        /* ログイン周りのデザイン */
+        #auth-container { margin-bottom: 20px; text-align: center; }
+        #user-info { display: none; align-items: center; gap: 10px; margin-bottom: 15px;}
+        #user-photo { width: 32px; height: 32px; border-radius: 50%; }
+        .btn-login { background-color: #4285F4; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-logout { background-color: #666; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 0.8rem; }
 
-        h1 { margin-bottom: 20px; font-size: 1.5rem; }
+        /* チャート部分（非表示で開始） */
+        #app-container { display: none; width: 100%; display: flex; flex-direction: column; align-items: center; }
 
-        /* 全体を包むコンテナ */
         .mandala-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            gap: 10px; /* 親グリッド間の隙間 */
-            max-width: 900px;
+            gap: 5px;
+            max-width: 800px;
             width: 100%;
-            aspect-ratio: 1 / 1; /* 正方形を維持 */
+            aspect-ratio: 1 / 1;
         }
-
-        /* 3x3の各ブロック */
         .grid-block {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            gap: 2px;
-            background-color: #ccc; /* 枠線の色代わり */
+            gap: 1px;
+            background-color: #ccc;
             border: 1px solid #999;
         }
-
-        /* 中央のブロック（親テーマ）を強調 */
-        .grid-block.center-block {
-            border: 3px solid #1976d2;
-            z-index: 10;
-        }
-
-        /* 各セル（入力欄） */
+        .grid-block.center-block { border: 3px solid #1976d2; z-index: 10; }
         .cell {
             background-color: var(--cell-bg);
             border: none;
-            text-align: center;
-            font-size: 0.9rem;
-            padding: 5px;
-            resize: none; /* サイズ変更不可 */
-            outline: none;
+            padding: 2px;
             width: 100%;
             height: 100%;
             box-sizing: border-box;
@@ -71,109 +63,150 @@
             align-items: center;
             justify-content: center;
         }
-
-        .cell:focus { background-color: #f0f8ff; }
-
-        /* 入力欄（textareaとして実装） */
         textarea.cell-input {
-            width: 100%;
-            height: 100%;
-            border: none;
-            background: transparent;
-            text-align: center;
-            resize: none;
-            font-family: inherit;
+            width: 100%; height: 100%; border: none; background: transparent;
+            text-align: center; resize: none; font-family: inherit; font-size: 0.8rem; outline: none;
         }
-
-        /* 中央ブロックのスタイル */
         .center-block .cell { background-color: var(--center-bg); }
+        .core-cell { background-color: var(--core-bg) !important; font-weight: bold; border: 2px solid #fbc02d; }
         
-        /* ど真ん中のセル（最終目標） */
-        .core-cell {
-            background-color: var(--core-bg) !important;
-            font-weight: bold;
-            font-size: 1.1rem;
-            border: 2px solid #fbc02d;
-        }
+        /* 保存ステータス表示 */
+        #status-msg { margin-top: 10px; font-size: 0.8rem; color: #666; height: 1.2em; }
 
-        /* フッター（リセットボタン） */
-        .footer { margin-top: 30px; }
-        button {
-            background-color: #ff5252;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        button:hover { background-color: #d32f2f; }
-
-        /* スマホ対応 */
         @media (max-width: 600px) {
-            .mandala-container { gap: 5px; }
-            .cell-input { font-size: 0.7rem; }
+            .mandala-container { gap: 2px; }
+            textarea.cell-input { font-size: 0.6rem; }
         }
     </style>
 </head>
 <body>
 
-    <h1>マンダラチャート</h1>
+    <h1>目標達成マンダラチャート</h1>
 
-    <div class="mandala-container" id="mandala">
+    <div id="auth-container">
+        <button id="login-btn" class="btn-login" onclick="signIn()">Googleでログインして始める</button>
+        <div id="user-info">
+            <img id="user-photo" src="" alt="">
+            <span id="user-name"></span>
+            <button class="btn-logout" onclick="signOutApp()">ログアウト</button>
         </div>
-
-    <div class="footer">
-        <button onclick="resetData()">データを全消去する</button>
     </div>
 
-    <script>
-        // グリッドの構成定義
-        // 0 1 2
-        // 3 4 5
-        // 6 7 8
-        // 各ブロックがさらに9マス(0-8)を持つ
+    <div id="app-container" style="display:none;">
+        <div class="mandala-container" id="mandala"></div>
+        <div id="status-msg">データ読込中...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // あなたのプロジェクト設定 (nazori-app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXIoMB5tIwB4qyi39f2cJH_qI0etgzpH8",
+            authDomain: "nazori-app.firebaseapp.com",
+            projectId: "nazori-app",
+            storageBucket: "nazori-app.firebasestorage.app",
+            messagingSenderId: "199689264431",
+            appId: "1:199689264431:web:2e09288f9c409f0952d5da"
+        };
         
-        const mandalaContainer = document.getElementById('mandala');
-        const STORAGE_KEY = 'mandala_data';
+        // Firebase初期化
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        let currentUser = null;
+        let mandalaData = {};
+        let saveTimeout = null;
+
+        // ログイン処理
+        window.signIn = () => {
+            signInWithPopup(auth, provider).catch((error) => alert("ログイン失敗: " + error.message));
+        };
+
+        // ログアウト処理
+        window.signOutApp = () => {
+            signOut(auth).then(() => location.reload());
+        };
+
+        // ログイン状態の監視
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('login-btn').style.display = 'none';
+                document.getElementById('user-info').style.display = 'flex';
+                document.getElementById('user-name').innerText = user.displayName + " さんのシート";
+                document.getElementById('user-photo').src = user.photoURL;
+                document.getElementById('app-container').style.display = 'flex';
+                
+                loadData(user.uid);
+            } else {
+                document.getElementById('app-container').style.display = 'none';
+                document.getElementById('login-btn').style.display = 'inline-block';
+            }
+        });
 
         // データの読み込み
-        let mandalaData = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        function loadData(uid) {
+            const docRef = doc(db, "users", uid, "mandala", "main");
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const serverData = docSnap.data().grid || {};
+                    // 編集中以外なら反映
+                    if (document.activeElement.tagName !== "TEXTAREA") {
+                        mandalaData = serverData;
+                        renderValues();
+                        document.getElementById('status-msg').innerText = "クラウドと同期完了";
+                    }
+                } else {
+                    document.getElementById('status-msg').innerText = "新しいシートを作成しました";
+                }
+            });
+        }
 
-        // 81マスを生成する関数
+        // データの保存
+        function saveToCloud() {
+            if (!currentUser) return;
+            document.getElementById('status-msg').innerText = "保存中...";
+            
+            const docRef = doc(db, "users", currentUser.uid, "mandala", "main");
+            setDoc(docRef, { 
+                grid: mandalaData,
+                updatedAt: new Date()
+            }, { merge: true })
+            .then(() => {
+                document.getElementById('status-msg').innerText = "保存しました";
+            })
+            .catch((e) => {
+                document.getElementById('status-msg').innerText = "保存エラー: " + e.message;
+            });
+        }
+
+        // マンダラチャート生成
+        const mandalaContainer = document.getElementById('mandala');
         function createMandala() {
+            mandalaContainer.innerHTML = "";
             for (let blockIdx = 0; blockIdx < 9; blockIdx++) {
                 const blockDiv = document.createElement('div');
                 blockDiv.className = 'grid-block';
-                if (blockIdx === 4) blockDiv.classList.add('center-block'); // 中央ブロック
+                if (blockIdx === 4) blockDiv.classList.add('center-block');
 
                 for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
                     const cellDiv = document.createElement('div');
                     cellDiv.className = 'cell';
-                    
-                    // ど真ん中（全体の目標）
-                    if (blockIdx === 4 && cellIdx === 4) {
-                        cellDiv.classList.add('core-cell');
-                    }
+                    if (blockIdx === 4 && cellIdx === 4) cellDiv.classList.add('core-cell');
 
                     const textarea = document.createElement('textarea');
                     textarea.className = 'cell-input';
-                    textarea.id = `b${blockIdx}-c${cellIdx}`; // ID: block番号-cell番号
+                    textarea.id = `b${blockIdx}-c${cellIdx}`;
                     
-                    // 保存されたデータがあれば入れる
-                    if (mandalaData[textarea.id]) {
-                        textarea.value = mandalaData[textarea.id];
-                    }
-
-                    // 入力イベントリスナー
                     textarea.addEventListener('input', (e) => {
                         handleInput(blockIdx, cellIdx, e.target.value);
                     });
 
-                    // 読み取り専用の設定（中央ブロックの周囲8マスから、周辺ブロックの中心へコピーされるため）
-                    // 周辺ブロックの中心(cellIdx 4)は、中央ブロックと連動するため編集不可にするか選べますが、
-                    // 今回は「自動反映」を優先し、ユーザーが直接編集しても上書きされる仕様にします。
-                    
                     cellDiv.appendChild(textarea);
                     blockDiv.appendChild(cellDiv);
                 }
@@ -181,59 +214,34 @@
             }
         }
 
-        // 入力処理と連動ロジック
+        function renderValues() {
+            for (const key in mandalaData) {
+                const el = document.getElementById(key);
+                if (el) el.value = mandalaData[key];
+            }
+        }
+
         function handleInput(blockIdx, cellIdx, value) {
-            // 1. データを保存
             const id = `b${blockIdx}-c${cellIdx}`;
             mandalaData[id] = value;
-            saveData();
 
-            // 2. 連動ロジック (マンダラチャートの肝)
-            // 中央ブロック(4)の周囲(0,1,2,3,5,6,7,8)に入力したら、
-            // 対応する周辺ブロックの中心(4)にコピーする
-            
             if (blockIdx === 4 && cellIdx !== 4) {
-                // 対応関係の定義
-                // 中央ブロックのセル位置 -> ターゲットとなる周辺ブロックのインデックス
-                const targetBlocks = {
-                    0: 0, 1: 1, 2: 2,
-                    3: 3,       5: 5,
-                    6: 6, 7: 7, 8: 8
-                };
-
+                const targetBlocks = {0:0, 1:1, 2:2, 3:3, 5:5, 6:6, 7:7, 8:8};
                 const targetBlockIdx = targetBlocks[cellIdx];
                 if (targetBlockIdx !== undefined) {
-                    const targetId = `b${targetBlockIdx}-c4`; // ターゲットの中心(4)
-                    
-                    // DOMを更新
+                    const targetId = `b${targetBlockIdx}-c4`;
+                    mandalaData[targetId] = value;
                     const targetEl = document.getElementById(targetId);
                     if (targetEl) targetEl.value = value;
-
-                    // データも更新して保存
-                    mandalaData[targetId] = value;
-                    saveData();
                 }
             }
+
+            if (saveTimeout) clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveToCloud, 1000);
+            document.getElementById('status-msg').innerText = "入力中...";
         }
 
-        // ローカルストレージへの保存
-        function saveData() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(mandalaData));
-        }
-
-        // リセット機能
-        function resetData() {
-            if (confirm('本当に入力内容をすべて消去しますか？')) {
-                localStorage.removeItem(STORAGE_KEY);
-                mandalaData = {};
-                // 画面をリロードしてクリア
-                location.reload();
-            }
-        }
-
-        // 初期化実行
         createMandala();
-
     </script>
 </body>
 </html>
