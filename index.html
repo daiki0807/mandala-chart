@@ -18,10 +18,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 10px; /* スマホ用に余白削減 */
+            padding: 10px;
             margin: 0;
             color: var(--text-color);
-            overscroll-behavior: none; /* バウンス防止 */
+            overscroll-behavior: none;
         }
         h1 { margin: 10px 0; font-size: 1.2rem; }
         
@@ -54,7 +54,7 @@
             gap: 1px;
             background-color: #999;
             border: 1px solid #999;
-            cursor: pointer; /* タップできることを示唆 */
+            cursor: pointer;
             transition: transform 0.2s;
         }
         .grid-block:active { transform: scale(0.98); }
@@ -78,19 +78,19 @@
         textarea.cell-input {
             width: 100%; height: 100%; border: none; background: transparent;
             text-align: center; resize: none; font-family: inherit; 
-            font-size: 0.75rem; /* PC向け基本サイズ */
+            font-size: 0.75rem;
             padding: 2px;
             outline: none;
             line-height: 1.2;
-            pointer-events: none; /* 通常時は入力を無効化（拡大時のみ入力させる） */
+            pointer-events: none;
         }
 
-        /* ★★★ 拡大モーダル（ここが新機能） ★★★ */
+        /* ★★★ 拡大モーダル（修正部分） ★★★ */
         #zoom-modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85); /* 背景を少し濃くしました */
             z-index: 1000;
             justify-content: center;
             align-items: center;
@@ -100,27 +100,29 @@
             width: 90%;
             max-width: 400px;
             aspect-ratio: 1/1;
-            background: white;
+            /* ここを修正：背景を濃いグレーにして、線をくっきりさせる */
+            background: #999; 
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             grid-template-rows: repeat(3, 1fr);
-            gap: 2px;
-            padding: 5px;
-            border-radius: 10px;
+            gap: 2px; /* マスの隙間（＝境界線の太さ） */
+            padding: 2px; /* 外枠の太さ */
+            border-radius: 4px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
         .zoom-cell {
-            background: white;
+            background: white; /* マスは白 */
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid #ddd;
+            /* borderは削除し、gapで線を見せる方式に変更 */
         }
         .zoom-input {
             width: 100%; height: 100%;
             border: none; text-align: center; resize: none; outline: none;
-            font-size: 1rem; /* 拡大時は文字大きく */
+            font-size: 1.1rem; /* 文字を少し大きく見やすく */
             padding: 5px;
+            background: transparent;
         }
         #close-zoom {
             margin-top: 20px;
@@ -130,11 +132,10 @@
             cursor: pointer;
         }
 
-        /* スマホ調整 */
         @media (max-width: 600px) {
             .mandala-container { gap: 1px; }
             textarea.cell-input { 
-                font-size: 0.5rem; /* スマホ一覧時は極小文字で見せるだけ */
+                font-size: 0.5rem;
                 padding: 0;
             }
         }
@@ -159,7 +160,7 @@
     </div>
 
     <div id="zoom-modal">
-        <div style="color:white; margin-bottom:10px;">編集するマスを選択</div>
+        <div style="color:white; margin-bottom:10px; font-weight:bold;">編集するマスをタップ</div>
         <div id="zoom-container"></div>
         <button id="close-zoom" onclick="closeZoom()">閉じる</button>
     </div>
@@ -169,7 +170,7 @@
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // ★★★ 必ずあなたの鍵情報に戻してください ★★★
+        // あなたの鍵情報
         const firebaseConfig = {
             apiKey: "AIzaSyCXIoMB5tIwB4qyi39f2cJH_qI0etgzpH8",
             authDomain: "nazori-app.firebaseapp.com",
@@ -187,7 +188,7 @@
         let currentUser = null;
         let mandalaData = {};
         let saveTimeout = null;
-        let currentZoomBlock = null; // 今拡大しているブロック番号
+        let currentZoomBlock = null;
 
         window.signIn = () => signInWithPopup(auth, provider).catch((e) => alert(e.message));
         window.signOutApp = () => signOut(auth).then(() => location.reload());
@@ -211,14 +212,11 @@
             const docRef = doc(db, "users", uid, "mandala", "main");
             onSnapshot(docRef, (docSnap) => {
                 if (docSnap.exists()) {
-                    // 編集中(拡大中)でなければ更新
                     if (document.getElementById('zoom-modal').style.display !== 'flex') {
                         mandalaData = docSnap.data().grid || {};
                         renderAll();
                     } else {
-                        // 裏でデータだけ更新しておく
                         const newData = docSnap.data().grid || {};
-                        // 競合避けるためマージは慎重に（今回は簡易実装）
                         mandalaData = newData; 
                     }
                     document.getElementById('status-msg').innerText = "同期完了";
@@ -234,7 +232,6 @@
             .then(() => document.getElementById('status-msg').innerText = "保存しました");
         }
 
-        // 全体表示の生成
         const mandalaContainer = document.getElementById('mandala');
         function createMandala() {
             mandalaContainer.innerHTML = "";
@@ -243,7 +240,6 @@
                 blockDiv.className = 'grid-block';
                 if (blockIdx === 4) blockDiv.classList.add('center-block');
 
-                // ブロックをクリックしたら拡大モードへ
                 blockDiv.onclick = () => openZoom(blockIdx);
 
                 for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
@@ -254,7 +250,7 @@
                     const textarea = document.createElement('textarea');
                     textarea.className = 'cell-input';
                     textarea.id = `view-b${blockIdx}-c${cellIdx}`;
-                    textarea.readOnly = true; // 一覧画面では入力禁止
+                    textarea.readOnly = true;
                     textarea.value = mandalaData[`b${blockIdx}-c${cellIdx}`] || "";
                     
                     cellDiv.appendChild(textarea);
@@ -273,36 +269,30 @@
             }
         }
 
-        // ★★★ 拡大モードの処理 ★★★
         window.openZoom = (blockIdx) => {
             currentZoomBlock = blockIdx;
             const zoomModal = document.getElementById('zoom-modal');
             const zoomContainer = document.getElementById('zoom-container');
-            zoomContainer.innerHTML = ""; // クリア
+            zoomContainer.innerHTML = "";
 
-            // 拡大用の3x3を生成
             for (let cellIdx = 0; cellIdx < 9; cellIdx++) {
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'zoom-cell';
-                if (blockIdx === 4 && cellIdx === 4) cellDiv.style.backgroundColor = '#fff9c4'; // 核
-                if (blockIdx === 4) cellDiv.style.backgroundColor = '#e3f2fd'; // 親
+                if (blockIdx === 4 && cellIdx === 4) cellDiv.style.backgroundColor = '#fff9c4'; 
+                if (blockIdx === 4) cellDiv.style.backgroundColor = '#e3f2fd';
 
                 const textarea = document.createElement('textarea');
                 textarea.className = 'zoom-input';
                 const dataKey = `b${blockIdx}-c${cellIdx}`;
                 textarea.value = mandalaData[dataKey] || "";
 
-                // 入力処理
                 textarea.oninput = (e) => {
                     const val = e.target.value;
                     mandalaData[dataKey] = val;
-                    // 一覧画面にも即反映
                     document.getElementById(`view-${dataKey}`).value = val;
                     
-                    // 連動ロジック
                     handleSync(blockIdx, cellIdx, val);
 
-                    // 保存
                     if (saveTimeout) clearTimeout(saveTimeout);
                     saveTimeout = setTimeout(saveToCloud, 1000);
                 };
@@ -318,25 +308,20 @@
             document.getElementById('zoom-modal').style.display = 'none';
         };
 
-        // 連動ロジック
         function handleSync(blockIdx, cellIdx, value) {
-            // 中心ブロック(4)の周囲に入力 -> 周辺ブロックの中心(4)へ
             if (blockIdx === 4 && cellIdx !== 4) {
                 const targetBlocks = {0:0, 1:1, 2:2, 3:3, 5:5, 6:6, 7:7, 8:8};
                 const targetBlockIdx = targetBlocks[cellIdx];
                 if (targetBlockIdx !== undefined) {
                     const targetKey = `b${targetBlockIdx}-c4`;
                     mandalaData[targetKey] = value;
-                    // 一覧画面反映
                     const viewEl = document.getElementById(`view-${targetKey}`);
                     if(viewEl) viewEl.value = value;
                 }
             }
         }
 
-        // 初期化
         createMandala();
-
     </script>
 </body>
 </html>
